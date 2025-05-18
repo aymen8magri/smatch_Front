@@ -1,20 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  Image,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScrollView, Text, Image, View, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import MatchService from '@/services/MatchService';
 import { Match } from '@/models/Match';
 
-const ProductDetails = () => {
+const MatchesDetails = () => {
   const { id } = useLocalSearchParams();
   const [match, setMatch] = useState<Match | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
@@ -49,38 +40,34 @@ const ProductDetails = () => {
   };
 
   useEffect(() => {
-    const fetchProduct = async () => {
+    if (!id) return;
+
+    const fetchMatch = async () => {
       try {
-        setLoading(true);
-        const response = await ProductService.getProductById(id as string);
-        setProduct(response.data);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching product:', err);
-        setError('Failed to load product. Please try again.');
-        Alert.alert('Error', 'Failed to load product details.');
+        setIsLoading(true);
+        const response = await MatchService.getQuickMatchById(id as string);
+        setMatch(response.data);
+        setSelectedTeam(response.data.team1.teamName);
+      } catch (error) {
+        console.error('Error fetching match:', error);
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
-    fetchProduct();
+    fetchMatch();
   }, [id]);
 
-  const handleAddToCart = () => {
-    if (product) {
-      addToCart(product);
-    }
-  };
+  if (isLoading) {
+    return (
+      <View className="flex-1 justify-center items-center bg-darkBg p-4">
+        <ActivityIndicator size="large" color="#F97316" />
+        <Text className="text-white text-lg font-semibold mt-4">Chargement...</Text>
+      </View>
+    );
+  }
 
-  const handleRetry = () => {
-    setLoading(true);
-    setError(null);
-    fetchProduct();
-  };
-
-  // Render loading state
-  if (loading) {
+  if (!match) {
     return (
       <View className="flex-1 justify-center items-center bg-darkBg p-4">
         <Text className="text-white text-lg font-semibold text-center">Aucun match trouvé</Text>
@@ -132,20 +119,20 @@ const ProductDetails = () => {
     const teamId = selectedTeam === match.team1.teamName ? match.team1._id : match.team2._id;
 
     return (
-      <SafeAreaView style={styles.container}>
-        <Animated.View entering={FadeInDown.duration(300)} style={styles.centered}>
+      <View className="mt-4">
+        <Text className="text-white text-lg font-bold">Composition</Text>
+        <View className="flex-row justify-around mt-2">
           <TouchableOpacity
             className={`py-2 px-4 rounded-full ${selectedTeam === match.team1.teamName ? 'bg-orange-500' : 'bg-gray-600'}`}
             onPress={() => setSelectedTeam(match.team1.teamName)}
           >
-            <Ionicons name="arrow-back" size={24} color="#fff" />
+            <Text className="text-white text-sm font-semibold">{match.team1.teamName}</Text>
           </TouchableOpacity>
-          <Text style={styles.errorText}>{error || 'Product not found'}</Text>
           <TouchableOpacity
             className={`py-2 px-4 rounded-full ${selectedTeam === match.team2.teamName ? 'bg-orange-500' : 'bg-gray-600'}`}
             onPress={() => setSelectedTeam(match.team2.teamName)}
           >
-            <Text style={styles.retryButtonText}>Retry</Text>
+            <Text className="text-white text-sm font-semibold">{match.team2.teamName}</Text>
           </TouchableOpacity>
         </View>
         <View className="mt-5 bg-orange-500 rounded-lg p-4">
@@ -278,74 +265,81 @@ const ProductDetails = () => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.push('/shop')}
-          accessible
-          accessibilityLabel="Go back"
-        >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+    <ScrollView className="flex-1 bg-darkBg p-4">
+      <View className="flex-row items-center mb-4">
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="chevron-back-outline" size={24} color="#fff" />
         </TouchableOpacity>
+        <Text
+          className="text-white text-xl font-bold ml-2 flex-1"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {match.location || 'Match'}
+        </Text>
+      </View>
 
-        <Animated.View entering={FadeIn.duration(500)} style={styles.card}>
-          <View style={styles.imageContainer}>
-            {product.imageUrl?.startsWith('http') ? (
-              <Image
-                source={{ uri: product.imageUrl }}
-                style={styles.image}
-                resizeMode="cover"
-                onLoadStart={() => <ActivityIndicator color="#fff" />}
-                accessible
-                accessibilityLabel={product.name}
-              />
-            ) : (
-              <Image
-                source={{ uri: 'https://via.placeholder.com/150' }}
-                style={styles.image}
-                resizeMode="cover"
-                accessible
-                accessibilityLabel="Placeholder image"
-              />
-            )}
-          </View>
-
-          <View style={styles.content}>
+      <View className="mb-4">
+        <View className="flex-row justify-between items-center">
+          <View className="items-center flex-1">
+            <Image
+              source={
+                match.team1.logo
+                  ? { uri: match.team1.logo }
+                  : require('../../assets/images/smatch-logo.png')
+              }
+              className="w-12 h-12 mb-2"
+              resizeMode="contain"
+            />
             <Text
-              style={styles.category}
-              accessible
-              accessibilityLabel={`Category: ${product.category.name}`}
+              className="text-white text-sm font-semibold text-center"
+              numberOfLines={2}
             >
-              {product.category.name}
+              {match.team1.teamName}
             </Text>
-            <Text style={styles.title} accessible accessibilityLabel={`Product: ${product.name}`}>
-              {product.name}
-            </Text>
-
-            <View style={styles.priceRow}>
-              <Text
-                style={styles.price}
-                accessible
-                accessibilityLabel={`Price: ${isInStock ? `$${product.price.toFixed(2)}` : 'Sold Out'}`}
-              >
-                {isInStock ? `$${product.price.toFixed(2)}` : 'Sold Out'}
+          </View>
+          <View className="items-center">
+            {status === 'Upcoming' ? (
+              <Text className="text-white text-xl font-bold">À venir</Text>
+            ) : (
+              <Text className="text-white text-2xl font-bold">
+                {match.score1 ?? '0'} - {match.score2 ?? '0'}
               </Text>
-              <View
-                style={[
-                  styles.stockContainer,
-                  { backgroundColor: isInStock ? '#10B981' : '#EF4444' },
-                ]}
-              >
-                <Text
-                  style={styles.stockText}
-                  accessible
-                  accessibilityLabel={`Stock: ${product.stock || 'In Stock'}`}
-                >
-                  {product.stock || 'In Stock'}
-                </Text>
-              </View>
-            </View>
+            )}
+            <Text className="text-grayText text-sm mt-1">
+              {formatDate(match.date)}
+            </Text>
+          </View>
+          <View className="items-center flex-1">
+            <Image
+              source={
+                match.team2.logo
+                  ? { uri: match.team2.logo }
+                  : require('../../assets/images/smatch-logo.png')
+              }
+              className="w-12 h-12 mb-2"
+              resizeMode="contain"
+            />
+            <Text
+              className="text-white text-sm font-semibold text-center"
+              numberOfLines={2}
+            >
+              {match.team2.teamName}
+            </Text>
+          </View>
+        </View>
+        <View className="flex-row justify-center items-center mt-2">
+          <Ionicons
+            name={match.isPublic ? 'earth-outline' : 'lock-closed-outline'}
+            size={16}
+            color="#888"
+            className="mr-1"
+          />
+          <Text className="text-grayText text-sm">
+            {match.isPublic ? 'Public' : 'Privé'}
+          </Text>
+        </View>
+      </View>
 
       <View className="flex-row justify-around mb-4">
         <TouchableOpacity
@@ -375,148 +369,4 @@ const ProductDetails = () => {
   );
 };
 
-export default ProductDetails;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1e1e32',
-  },
-  scrollContent: {
-    padding: 20,
-    paddingTop: 80,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  retryButton: {
-    backgroundColor: '#1e90ff',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  backButton: {
-    position: 'absolute',
-    top: 16,
-    left: 16,
-    backgroundColor: '#2a2a40',
-    padding: 12,
-    borderRadius: 12,
-    zIndex: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 6,
-  },
-  card: {
-    backgroundColor: '#2a2a40',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#3a3a50',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 12,
-  },
-  imageContainer: {
-    width: '100%',
-    height: 300,
-    backgroundColor: '#3a3a50',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  content: {
-    padding: 24,
-  },
-  category: {
-    color: '#ff6f61',
-    fontSize: 14,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    marginBottom: 8,
-  },
-  title: {
-    color: '#fff',
-    fontSize: 30,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  price: {
-    color: '#ff6200',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginRight: 12,
-  },
-  stockContainer: {
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  stockText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  descriptionTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  description: {
-    color: '#a0a0b0',
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 24,
-  },
-  addToCartButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  addToCartText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
+export default MatchesDetails;

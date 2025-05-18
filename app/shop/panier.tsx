@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
 import { useCart } from '../../contexts/CartContext';
+import OrderService from '../../services/OrderService';
 
 interface CartItem {
   _id: string;
@@ -25,20 +26,77 @@ interface CartItem {
 
 const Panier = () => {
   const router = useRouter();
-  const { cartItems, updateQuantity, removeItem } = useCart();
+  const { cartItems, updateQuantity, removeItem, clearCart } = useCart();
   const [imageLoading, setImageLoading] = useState<{ [key: string]: boolean }>({});
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   const total = cartItems
     .reduce((sum, item) => sum + item.price * item.quantity, 0)
     .toFixed(2);
 
-  const handleCheckout = () => {
-    Toast.show({
-      type: 'success',
-      text1: 'Commande passée',
-      text2: 'Votre commande a été enregistrée avec succès !',
-    });
-    // TODO: Implement actual checkout logic (e.g., API call)
+  const handleCheckout = async () => {
+    if (cartItems.length === 0) {
+      Toast.show({
+        type: 'error',
+        text1: 'Panier vide',
+        text2: 'Ajoutez des produits avant de passer une commande.',
+      });
+      return;
+    }
+
+    // Validate ObjectId format for product IDs
+    const invalidItems = cartItems.filter((item) => !/^[0-9a-fA-F]{24}$/.test(item._id));
+    if (invalidItems.length > 0) {
+      Toast.show({
+        type: 'error',
+        text1: 'Produits invalides',
+        text2: 'Certains produits ont des identifiants invalides.',
+      });
+      return;
+    }
+
+    setIsCheckingOut(true);
+    try {
+      // TODO: Replace with a valid ObjectId from your users collection
+      const userId = '507f1f77bcf86cd799439011'; // Example valid ObjectId
+      if (!/^[0-9a-fA-F]{24}$/.test(userId)) {
+        throw new Error('Identifiant utilisateur invalide');
+      }
+
+      const orderData = {
+        user: userId,
+        products: cartItems.map((item) => item._id), // Send ObjectId array
+        quantities: cartItems.map((item) => item.quantity), // Separate quantities (optional)
+        total: parseFloat(total),
+      };
+
+      console.log('Order Payload:', JSON.stringify(orderData, null, 2));
+      await OrderService.createOrder(orderData);
+      clearCart();
+      Toast.show({
+        type: 'success',
+        text1: 'Commande passée',
+        text2: 'Votre commande a été enregistrée avec succès !',
+      });
+      router.push('/(tabs)/boutique');
+    } catch (error: any) {
+      console.error('Erreur lors de la commande:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        'Échec de la commande. Veuillez réessayer.';
+      Toast.show({
+        type: 'error',
+        text1: 'Erreur',
+        text2: errorMessage,
+      });
+    } finally {
+      setIsCheckingOut(false);
+    }
   };
 
   const renderItem = ({ item, index }: { item: CartItem; index: number }) => (
@@ -57,7 +115,7 @@ const Panier = () => {
           onLoadStart={() => setImageLoading((prev) => ({ ...prev, [item._id]: true }))}
           onLoadEnd={() => setImageLoading((prev) => ({ ...prev, [item._id]: false }))}
           accessible
-          accessibilityLabel={`Image of ${item.name}`}
+          accessibilityLabel={`Image de ${item.name}`}
         />
       </View>
       <View style={styles.info}>
@@ -161,12 +219,20 @@ const Panier = () => {
           >
             <Text style={styles.totalText}>Total: ${total}</Text>
             <TouchableOpacity
-              style={styles.checkoutButton}
+              style={[
+                styles.checkoutButton,
+                (isCheckingOut || cartItems.length === 0) && styles.checkoutButtonDisabled,
+              ]}
               onPress={handleCheckout}
+              disabled={isCheckingOut || cartItems.length === 0}
               accessible
               accessibilityLabel="Passer à la caisse"
             >
-              <Text style={styles.checkoutText}>Commander</Text>
+              {isCheckingOut ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.checkoutText}>Commander</Text>
+              )}
             </TouchableOpacity>
           </Animated.View>
         </>
@@ -325,6 +391,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 4,
+  },
+  checkoutButtonDisabled: {
+    backgroundColor: '#6b7280',
+    opacity: 0.6,
   },
   checkoutText: {
     color: '#fff',

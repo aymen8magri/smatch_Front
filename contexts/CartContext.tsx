@@ -16,6 +16,7 @@ interface CartContextType {
   updateQuantity: (_id: string, delta: number) => void;
   removeItem: (_id: string, name: string) => void;
   getCartCount: () => number;
+  clearCart: () => void; // Added clearCart
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -84,9 +85,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return cartItems.reduce((sum, item) => sum + item.quantity, 0);
   };
 
+  const clearCart = () => {
+    setCartItems([]);
+    Toast.show({
+      type: 'info',
+      text1: 'Panier vidé',
+      text2: 'Votre panier a été vidé.',
+    });
+  };
+
   return (
     <CartContext.Provider
-      value={{ cartItems, addToCart, updateQuantity, removeItem, getCartCount }}
+      value={{ cartItems, addToCart, updateQuantity, removeItem, getCartCount, clearCart }}
     >
       {children}
     </CartContext.Provider>
