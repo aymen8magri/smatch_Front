@@ -11,48 +11,22 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import Toast from 'react-native-toast-message';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import Toast from 'react-native-toast-message';
+import { useCart } from '../../contexts/CartContext';
 
-const initialCartItems = [
-  {
-    id: '1',
-    name: 'Volleyball Pro',
-    price: 29.99,
-    image: 'https://teamwear-concept.com/wp-content/uploads/2023/02/72-198-1-570x570-1.png',
-    quantity: 1,
-  },
-  {
-    id: '4',
-    name: 'Volleyball Shoes',
-    price: 89.99,
-    image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSHqlQqCNPHvbZbQlR47Uyyv0Fwr-lX4t3B8g&s',
-    quantity: 2,
-  },
-];
+interface CartItem {
+  _id: string;
+  name: string;
+  price: number;
+  imageUrl: string;
+  quantity: number;
+}
 
 const Panier = () => {
   const router = useRouter();
-  const [cartItems, setCartItems] = useState(initialCartItems);
-
-  const updateQuantity = (id: string, delta: number) => {
-    setCartItems((prevItems) =>
-      prevItems.map((item) =>
-        item.id === id
-          ? { ...item, quantity: Math.max(1, item.quantity + delta) }
-          : item
-      )
-    );
-  };
-
-  const removeItem = (id: string, name: string) => {
-    setCartItems((prevItems) => prevItems.filter((item) => item.id !== id));
-    Toast.show({
-      type: 'success',
-      text1: 'Produit supprimé',
-      text2: `${name} a été retiré du panier`,
-    });
-  };
+  const { cartItems, updateQuantity, removeItem } = useCart();
+  const [imageLoading, setImageLoading] = useState<{ [key: string]: boolean }>({});
 
   const total = cartItems
     .reduce((sum, item) => sum + item.price * item.quantity, 0)
@@ -60,65 +34,73 @@ const Panier = () => {
 
   const handleCheckout = () => {
     Toast.show({
-      type: 'info',
-      text1: 'Commander',
-      text2: 'Proceeding to checkout...',
+      type: 'success',
+      text1: 'Commande passée',
+      text2: 'Votre commande a été enregistrée avec succès !',
     });
-    // Optionally navigate to checkout screen
-    // router.push('/checkout');
+    // TODO: Implement actual checkout logic (e.g., API call)
   };
 
-  const renderItem = ({ item, index }: { item: any; index: number }) => (
+  const renderItem = ({ item, index }: { item: CartItem; index: number }) => (
     <Animated.View
       entering={FadeInDown.duration(300).delay(index * 100)}
       style={styles.itemContainer}
     >
       <View style={styles.imageContainer}>
+        {imageLoading[item._id] && (
+          <ActivityIndicator style={styles.imageLoader} color="#1e90ff" />
+        )}
         <Image
-          source={{ uri: item.image }}
+          source={{ uri: item.imageUrl }}
           style={styles.image}
           resizeMode="cover"
-          onLoadStart={() => <ActivityIndicator color="#fff" />}
+          onLoadStart={() => setImageLoading((prev) => ({ ...prev, [item._id]: true }))}
+          onLoadEnd={() => setImageLoading((prev) => ({ ...prev, [item._id]: false }))}
           accessible
-          accessibilityLabel={item.name}
+          accessibilityLabel={`Image of ${item.name}`}
         />
       </View>
       <View style={styles.info}>
         <Text
           style={styles.name}
           accessible
-          accessibilityLabel={`Product: ${item.name}`}
+          accessibilityLabel={`Produit: ${item.name}`}
         >
           {item.name}
         </Text>
         <Text
           style={styles.price}
           accessible
-          accessibilityLabel={`Price: $${(item.price * item.quantity).toFixed(2)}`}
+          accessibilityLabel={`Prix: $${(item.price * item.quantity).toFixed(2)}`}
         >
           ${(item.price * item.quantity).toFixed(2)}
         </Text>
         <View style={styles.quantityContainer}>
           <TouchableOpacity
             style={styles.quantityButton}
-            onPress={() => updateQuantity(item.id, -1)}
+            onPress={() => updateQuantity(item._id, -1)}
+            disabled={item.quantity <= 1}
             accessible
-            accessibilityLabel="Decrease quantity"
+            accessibilityLabel={`Diminuer la quantité de ${item.name}`}
           >
-            <Ionicons name="remove" size={20} color="#fff" />
+            <Ionicons
+              name="remove"
+              size={20}
+              color={item.quantity <= 1 ? '#6b7280' : '#fff'}
+            />
           </TouchableOpacity>
           <Text
             style={styles.quantity}
             accessible
-            accessibilityLabel={`Quantity: ${item.quantity}`}
+            accessibilityLabel={`Quantité: ${item.quantity}`}
           >
             {item.quantity}
           </Text>
           <TouchableOpacity
             style={styles.quantityButton}
-            onPress={() => updateQuantity(item.id, 1)}
+            onPress={() => updateQuantity(item._id, 1)}
             accessible
-            accessibilityLabel="Increase quantity"
+            accessibilityLabel={`Augmenter la quantité de ${item.name}`}
           >
             <Ionicons name="add" size={20} color="#fff" />
           </TouchableOpacity>
@@ -126,9 +108,9 @@ const Panier = () => {
       </View>
       <TouchableOpacity
         style={styles.removeButton}
-        onPress={() => removeItem(item.id, item.name)}
+        onPress={() => removeItem(item._id, item.name)}
         accessible
-        accessibilityLabel={`Remove ${item.name} from cart`}
+        accessibilityLabel={`Supprimer ${item.name} du panier`}
       >
         <Ionicons name="trash-outline" size={24} color="#EF4444" />
       </TouchableOpacity>
@@ -140,9 +122,9 @@ const Panier = () => {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.push('/boutique')}
+          onPress={() => router.push('/(tabs)/boutique')}
           accessible
-          accessibilityLabel="Go back to shop"
+          accessibilityLabel="Retour à la boutique"
         >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
@@ -157,9 +139,9 @@ const Panier = () => {
           <Text style={styles.emptyText}>Votre panier est vide 🛒</Text>
           <TouchableOpacity
             style={styles.shopButton}
-            onPress={() => router.push('/boutique')}
+            onPress={() => router.push('/(tabs)/boutique')}
             accessible
-            accessibilityLabel="Shop now"
+            accessibilityLabel="Commencer vos achats"
           >
             <Text style={styles.shopButtonText}>Acheter maintenant</Text>
           </TouchableOpacity>
@@ -168,9 +150,10 @@ const Panier = () => {
         <>
           <FlatList
             data={cartItems}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item._id}
             renderItem={renderItem}
             contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
           />
           <Animated.View
             entering={FadeInDown.duration(300).delay(200)}
@@ -181,7 +164,7 @@ const Panier = () => {
               style={styles.checkoutButton}
               onPress={handleCheckout}
               accessible
-              accessibilityLabel="Proceed to checkout"
+              accessibilityLabel="Passer à la caisse"
             >
               <Text style={styles.checkoutText}>Commander</Text>
             </TouchableOpacity>
@@ -274,11 +257,15 @@ const styles = StyleSheet.create({
     marginRight: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
   image: {
     width: 80,
     height: 80,
     borderRadius: 12,
+  },
+  imageLoader: {
+    position: 'absolute',
   },
   info: {
     flex: 1,

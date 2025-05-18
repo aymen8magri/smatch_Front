@@ -2,10 +2,11 @@ import { Stack } from "expo-router";
 import Toast from 'react-native-toast-message';
 import './globals.css';
 import { toastConfig } from '../components/toastConfig';
+import { CartProvider } from '../contexts/CartContext';
 
 export default function RootLayout() {
   return (
-    <>
+    <CartProvider>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="search" options={{ headerShown: false }} />
@@ -20,6 +21,6 @@ export default function RootLayout() {
         <Stack.Screen name="profileUser/editProfile" options={{ headerShown: false }} />
       </Stack>
       <Toast config={toastConfig} />
-    </>
+    </CartProvider>
   );
 }

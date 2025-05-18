@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Match } from '@/models/Match';
 
-const API_URL = 'http://192.168.1.20:3000/api/matches';
+const API_URL = 'http://192.168.0.135:3000/api/matches';
 
 // Create a new quick match
 const createQuickMatch = async (matchData: Match) => {

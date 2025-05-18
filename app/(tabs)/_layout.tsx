@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons'; // For icons
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import UserService from '@/services/UserService';
 
@@ -22,14 +22,14 @@ const _layout = () => {
     <Tabs
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: '#1e1e32', // Dark background to match the login line
-          borderTopWidth: 0, // Remove the top border
-          height: 70, // Increased height to accommodate larger central button
+          backgroundColor: '#1e1e32',
+          borderTopWidth: 0,
+          height: 70,
           paddingBottom: 5,
           paddingTop: 5,
         },
-        tabBarActiveTintColor: '#1e90ff', // Blue accent for active tab
-        tabBarInactiveTintColor: '#888', // Gray for inactive tabs
+        tabBarActiveTintColor: '#1e90ff',
+        tabBarInactiveTintColor: '#888',
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: 'bold',
@@ -70,19 +70,19 @@ const _layout = () => {
               style={{
                 alignItems: 'center',
                 justifyContent: 'center',
-                top: -15, // Move the button upward to make it appear elevated
+                top: -15,
                 width: 60,
                 height: 60,
-                backgroundColor: focused ? '#1e90ff' : '#1e90ff', // Blue background like the hexagon
-                borderRadius: 30, // Circular shape to approximate hexagon
+                backgroundColor: focused ? '#1e90ff' : '#1e90ff',
+                borderRadius: 30,
                 borderWidth: 2,
-                borderColor: '#fff', // White border for contrast
+                borderColor: '#fff',
               }}
             >
               <Ionicons
                 name="cart-outline"
-                size={focused ? 32 : 28} // Larger icon when focused
-                color="#fff" // White icon to contrast with blue background
+                size={focused ? 32 : 28}
+                color="#fff"
               />
             </View>
           ),
@@ -115,9 +115,6 @@ const _layout = () => {
             ),
         }}
       />
-
-
-
     </Tabs>
   );
 };

@@ -1,7 +1,7 @@
 import { Order } from '@/models/Order';
 import axios from 'axios';
 
-const API_URL = 'http://192.168.1.20:3000/api/orders';
+const API_URL = 'http://192.168.0.135:3000/api/orders';
 
 // Créer une commande
 const createOrder = async (orderData: Order) => {

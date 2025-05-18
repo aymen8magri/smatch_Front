@@ -1,402 +1,360 @@
-import { ScrollView, Text, Image, View, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
-import React, { useEffect, useState } from 'react';
-import { useLocalSearchParams, router } from 'expo-router';
+import React, { useState, useEffect } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import MatchService from '@/services/MatchService';
-import { Match } from '@/models/Match';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Toast from 'react-native-toast-message';
+import ProductService from '../../services/ProductService';
+import { Product } from '@/models/Product';
+import { useCart } from '../../contexts/CartContext';
 
-// Volleyball positions in court order
-const volleyballPositions = [
-  'Setter', // Position 1: Back-right (service zone)
-  'Opposite', // Position 2: Front-right
-  'Outside Hitter', // Position 3: Front-center
-  'Middle Blocker', // Position 4: Front-left
-  'Outside Hitter', // Position 5: Back-left
-  'Libero', // Position 6: Back-center
-];
-
-const MatchesDetails = () => {
+const ProductDetails = () => {
   const { id } = useLocalSearchParams();
-  const [match, setMatch] = useState<Match | null>(null);
-  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('Line Up');
-  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
+  const { addToCart } = useCart();
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Function to handle requesting to join a public match
-  const handleJoinQuickMatch = async () => {
-    console.log('handleJoinQuickMatch called');
-    try {
-      console.log(`Joining match for ${id}`);
-
-      const response = await MatchService.joinQuickMatch(id as string); // utilise le service
-      const updatedMatch = response.data;
-
-      // ✅ Mets à jour l’état ou fais une redirection si besoin
-      console.log('Match mis à jour :', updatedMatch);
-
-      // Optionnel : message de succès ou redirection
-      Alert.alert('Succès', 'Vous avez rejoint le match avec succès.');
-
-    } catch (error: any) {
-      console.error('Erreur lors de la tentative de rejoindre le match :', error);
-      Alert.alert('Erreur', error.response?.data?.message || 'Échec de la tentative de rejoindre le match.');
-    }
-  };
-
-  // Function to handle requesting to join a private match
-  const handleRequestJoinPrivateMatch = async () => {
-    console.log('handleRequestJoinPrivateMatch called');
-    try {
-      await MatchService.requestToJoinQuickMatch(id as string);
-      Alert.alert('Demande envoyée', 'Votre demande pour rejoindre le match a été envoyée.');
-    } catch (error: any) {
-      console.error('Erreur lors de la demande de rejoindre le match :', error);
-      Alert.alert('Erreur', error.response?.data?.message || 'Échec de l\'envoi de la demande.');
-    }
-  };
-
-
+  // Fetch product by ID
   useEffect(() => {
-    if (!id) return;
-
-    const fetchMatch = async () => {
+    const fetchProduct = async () => {
       try {
-        setIsLoading(true);
-        const response = await MatchService.getQuickMatchById(id as string);
-        setMatch(response.data);
-        setSelectedTeam(response.data.team1.teamName);
-      } catch (error) {
-        console.error('Error fetching match:', error);
+        setLoading(true);
+        const response = await ProductService.getProductById(id as string);
+        setProduct(response.data);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching product:', err);
+        setError('Failed to load product. Please try again.');
+        Alert.alert('Error', 'Failed to load product details.');
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
-    fetchMatch();
+    fetchProduct();
   }, [id]);
 
-  if (isLoading) {
-    return (
-      <View className="flex-1 justify-center items-center bg-darkBg p-4">
-        <ActivityIndicator size="large" color="#F97316" />
-        <Text className="text-white text-lg font-semibold mt-4">Chargement...</Text>
-      </View>
-    );
-  }
-
-  if (!match) {
-    return (
-      <View className="flex-1 justify-center items-center bg-darkBg p-4">
-        <Text className="text-white text-lg font-semibold text-center">Aucun match trouvé</Text>
-        <Text className="text-grayText text-sm text-center mt-2">
-          Il semble qu'il n'y ait aucun match disponible pour le moment.
-        </Text>
-        <TouchableOpacity
-          className="mt-4 bg-orange-500 py-2 px-4 rounded-full"
-          onPress={() => router.back()}
-        >
-          <Text className="text-white font-semibold">Retour</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  const matchDate = new Date(match.date);
-  const now = new Date();
-  let status = 'Upcoming';
-  if (matchDate < now) {
-    status = 'Finished';
-  } else if (Math.abs(matchDate.getTime() - now.getTime()) < 2 * 60 * 60 * 1000) {
-    status = 'Live';
-  }
-
-  const currentFormation = selectedTeam === match.team1.teamName ? match.team1.players : match.team2.players;
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const handleAddToCart = () => {
+    if (product) {
+      addToCart(product);
+    }
   };
 
-  const renderFormation = () => {
-    // Map players to volleyball positions (ensure 6 players or fill with placeholders)
-    const orderedFormation = volleyballPositions.map((position, index) => {
-      const player = currentFormation.find((p) => p.position === position) || {
-        name: 'Inconnu',
-        position: position,
-      };
-      return { ...player, positionIndex: index + 1 }; // Add position index (1-6)
-    });
-
-    // Position abbreviations for display
-    const positionAbbreviations = {
-      'Setter': 'S',
-      'Opposite': 'O',
-      'Outside Hitter': 'OH',
-      'Middle Blocker': 'MB',
-      'Libero': 'L',
-    };
-
-    return (
-      <View className="mt-4">
-        <Text className="text-white text-lg font-bold">Composition</Text>
-        <View className="flex-row justify-around mt-2">
-          <TouchableOpacity
-            className={`py-2 px-4 rounded-full ${selectedTeam === match.team1.teamName ? 'bg-orange-500' : 'bg-gray-600'
-              }`}
-            onPress={() => setSelectedTeam(match.team1.teamName)}
-          >
-            <Text className="text-white text-sm font-semibold">{match.team1.teamName}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            className={`py-2 px-4 rounded-full ${selectedTeam === match.team2.teamName ? 'bg-orange-500' : 'bg-gray-600'
-              }`}
-            onPress={() => setSelectedTeam(match.team2.teamName)}
-          >
-            <Text className="text-white text-sm font-semibold">{match.team2.teamName}</Text>
-          </TouchableOpacity>
-        </View>
-        <View className="mt-5 bg-orange-500 rounded-lg p-4">
-          {/* Front Row: Positions 2, 3, 4 (Opposite, Outside Hitter, Middle Blocker) */}
-          <View className="flex-row justify-around">
-            {orderedFormation.slice(1, 4).map((player) => (
-              <View
-                key={player.position + player.positionIndex}
-                className="items-center"
-                style={{ position: 'relative' }}
-              >
-                <TouchableOpacity
-                  onPress={() =>
-                    match.isPublic
-                      ? handleJoinQuickMatch()
-                      : handleRequestJoinPrivateMatch()
-                  }
-                  style={{
-                    position: 'absolute',
-                    top: -7,
-                    left: '75%',
-                    transform: [{ translateX: -10 }],
-                    width: 25,
-                    height: 25,
-                    backgroundColor: '#10B981',
-                    borderRadius: 20,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    zIndex: 1,
-                  }}
-                >
-                  <Text className="text-white text-xl font-bold">+</Text>
-                </TouchableOpacity>
-
-                <View className="bg-blue-900 w-20 h-20 rounded-full items-center justify-center">
-                  <Text className="text-white font-bold text-lg">
-                    {positionAbbreviations[player.position] || player.position.charAt(0)}
-                  </Text>
-                </View>
-                <Text className="text-white text-sm mt-1 text-center" numberOfLines={2}>
-                  {player.name}
-                </Text>
-              </View>
-            ))}
-          </View>
-          <View className="border-t border-dashed border-white my-2" />
-          {/* Back Row: Positions 1, 6, 5 (Setter, Libero, Outside Hitter) */}
-          <View className="flex-row justify-around mt-3">
-            {orderedFormation
-              .filter((p) => [0, 5, 4].includes(p.positionIndex - 1))
-              .map((player) => (
-                <View
-                  key={player.position + player.positionIndex}
-                  className="items-center"
-                  style={{ position: 'relative' }}
-                >
-                  <TouchableOpacity
-                    onPress={() =>
-                      match.isPublic
-                        ? handleJoinQuickMatch()
-                        : handleRequestJoinPrivateMatch()
-                    }
-                    style={{
-                      position: 'absolute',
-                      top: -7,
-                      left: '75%',
-                      transform: [{ translateX: -10 }],
-                      width: 25,
-                      height: 25,
-                      backgroundColor: '#10B981',
-                      borderRadius: 20,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      zIndex: 1,
-                    }}
-                  >
-                    <Text className="text-white text-xl font-bold">+</Text>
-                  </TouchableOpacity>
-
-                  <View className="bg-blue-900 w-20 h-20 rounded-full items-center justify-center">
-                    <Text className="text-white font-bold text-lg">
-                      {positionAbbreviations[player.position] || player.position.charAt(0)}
-                    </Text>
-                  </View>
-                  <Text className="text-white text-sm mt-1 text-center" numberOfLines={2}>
-                    {player.name}
-                  </Text>
-                </View>
-              ))}
-          </View>
-        </View>
-      </View>
-    );
+  const handleRetry = () => {
+    setLoading(true);
+    setError(null);
+    fetchProduct();
   };
 
-  const renderMatchDetails = () => (
-    <View className="mt-4">
-      <Text className="text-white text-lg font-bold">Détails du match</Text>
-      <View className="mt-2 space-y-2">
-        <Text className="text-white text-sm">
-          Type de terrain : {match.terrainType || 'N/A'}
-        </Text>
-        <Text className="text-white text-sm">
-          Nombre maximum de sets : {match.maxSets || 'N/A'}
-        </Text>
-        <Text className="text-white text-sm" numberOfLines={2}>
-          Lieu : {match.location || 'N/A'}
-        </Text>
-        <Text className="text-white text-sm">
-          Visibilité : {match.isPublic ? 'Public' : 'Privé'}
-        </Text>
-        <Text className="text-white text-sm">
-          Créateur : {match.creator?.name || 'N/A'}
-        </Text>
-      </View>
-    </View>
-  );
+  // Render loading state
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Animated.View entering={FadeInDown.duration(300)} style={styles.centered}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.push('/shop')}
+            accessible
+            accessibilityLabel="Go back"
+          >
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <ActivityIndicator size="large" color="#1e90ff" />
+          <Text style={styles.errorText}>Loading product...</Text>
+        </Animated.View>
+      </SafeAreaView>
+    );
+  }
 
-  const renderH2H = () => (
-    <View className="mt-4">
-      <Text className="text-white text-lg font-bold">Face-à-face</Text>
-      <View className="mt-2 space-y-2">
-        <Text className="text-white text-sm">Date : {formatDate(match.date)}</Text>
-        <Text className="text-white text-sm">
-          Type de terrain : {match.terrainType || 'N/A'}
-        </Text>
-        <Text className="text-white text-sm">
-          Gagnant : {match.winner?.teamName || 'Non déterminé'}
-        </Text>
-      </View>
-    </View>
-  );
+  // Render error state or product not found
+  if (error || !product) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Animated.View entering={FadeInDown.duration(300)} style={styles.centered}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.push('/shop')}
+            accessible
+            accessibilityLabel="Go back"
+          >
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.errorText}>{error || 'Product not found'}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={handleRetry}
+            accessible
+            accessibilityLabel="Retry"
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </SafeAreaView>
+    );
+  }
+
+  // Determine stock status
+  const isInStock = product.stock !== 'Out of Stock';
 
   return (
-    <ScrollView className="flex-1 bg-darkBg p-4">
-      <View className="flex-row items-center mb-4">
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="chevron-back-outline" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text
-          className="text-white text-xl font-bold ml-2 flex-1"
-          numberOfLines={1}
-          ellipsizeMode="tail"
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.push('/shop')}
+          accessible
+          accessibilityLabel="Go back"
         >
-          {match.location || 'Match'}
-        </Text>
-      </View>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
 
-      <View className="mb-4">
-        <View className="flex-row justify-between items-center">
-          <View className="items-center flex-1">
-            <Image
-              source={
-                match.team1.logo
-                  ? { uri: match.team1.logo }
-                  : require('../../assets/images/smatch-logo.png')
-              }
-              className="w-12 h-12 mb-2"
-              resizeMode="contain"
-            />
-            <Text
-              className="text-white text-sm font-semibold text-center"
-              numberOfLines={2}
-            >
-              {match.team1.teamName}
-            </Text>
-          </View>
-          <View className="items-center">
-            {status === 'Upcoming' ? (
-              <Text className="text-white text-xl font-bold">À venir</Text>
+        <Animated.View entering={FadeIn.duration(500)} style={styles.card}>
+          <View style={styles.imageContainer}>
+            {product.imageUrl?.startsWith('http') ? (
+              <Image
+                source={{ uri: product.imageUrl }}
+                style={styles.image}
+                resizeMode="cover"
+                onLoadStart={() => <ActivityIndicator color="#fff" />}
+                accessible
+                accessibilityLabel={product.name}
+              />
             ) : (
-              <Text className="text-white text-2xl font-bold">
-                {match.score1 ?? '0'} - {match.score2 ?? '0'}
-              </Text>
+              <Image
+                source={{ uri: 'https://via.placeholder.com/150' }}
+                style={styles.image}
+                resizeMode="cover"
+                accessible
+                accessibilityLabel="Placeholder image"
+              />
             )}
-            <Text className="text-grayText text-sm mt-1">
-              {formatDate(match.date)}
-            </Text>
           </View>
-          <View className="items-center flex-1">
-            <Image
-              source={
-                match.team2.logo
-                  ? { uri: match.team2.logo }
-                  : require('../../assets/images/smatch-logo.png')
-              }
-              className="w-12 h-12 mb-2"
-              resizeMode="contain"
-            />
+
+          <View style={styles.content}>
             <Text
-              className="text-white text-sm font-semibold text-center"
-              numberOfLines={2}
+              style={styles.category}
+              accessible
+              accessibilityLabel={`Category: ${product.category.name}`}
             >
-              {match.team2.teamName}
+              {product.category.name}
             </Text>
+            <Text style={styles.title} accessible accessibilityLabel={`Product: ${product.name}`}>
+              {product.name}
+            </Text>
+
+            <View style={styles.priceRow}>
+              <Text
+                style={styles.price}
+                accessible
+                accessibilityLabel={`Price: ${isInStock ? `$${product.price.toFixed(2)}` : 'Sold Out'}`}
+              >
+                {isInStock ? `$${product.price.toFixed(2)}` : 'Sold Out'}
+              </Text>
+              <View
+                style={[
+                  styles.stockContainer,
+                  { backgroundColor: isInStock ? '#10B981' : '#EF4444' },
+                ]}
+              >
+                <Text
+                  style={styles.stockText}
+                  accessible
+                  accessibilityLabel={`Stock: ${product.stock || 'In Stock'}`}
+                >
+                  {product.stock || 'In Stock'}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.descriptionTitle}>Description</Text>
+            <Text
+              style={styles.description}
+              accessible
+              accessibilityLabel={`Description: ${product.description}`}
+            >
+              {product.description}
+            </Text>
+
+            <Animated.View entering={FadeIn.duration(500).delay(200)} sharedTransitionTag="add-to-cart">
+              <TouchableOpacity
+                style={[
+                  styles.addToCartButton,
+                  {
+                    backgroundColor: isInStock ? '#1e90ff' : '#6b7280',
+                    opacity: isInStock ? 1 : 0.6,
+                  },
+                ]}
+                onPress={() => isInStock && handleAddToCart()}
+                disabled={!isInStock}
+                activeOpacity={0.7}
+                accessible
+                accessibilityLabel="Add to cart"
+              >
+                <Ionicons name="cart-outline" size={24} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={styles.addToCartText}>Add to Cart</Text>
+              </TouchableOpacity>
+            </Animated.View>
           </View>
-        </View>
-        <View className="flex-row justify-center items-center mt-2">
-          <Ionicons
-            name={match.isPublic ? 'earth-outline' : 'lock-closed-outline'}
-            size={16}
-            color="#888"
-            className="mr-1"
-          />
-          <Text className="text-grayText text-sm">
-            {match.isPublic ? 'Public' : 'Privé'}
-          </Text>
-        </View>
-      </View>
-
-      <View className="flex-row justify-around mb-4">
-        <TouchableOpacity
-          className={`py-2 px-4 rounded-full ${activeTab === 'Match Detail' ? 'bg-orange-500' : 'bg-gray-600'
-            }`}
-          onPress={() => setActiveTab('Match Detail')}
-        >
-          <Text className="text-white text-sm font-semibold">Détails</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          className={`py-2 px-4 rounded-full ${activeTab === 'Line Up' ? 'bg-orange-500' : 'bg-gray-600'
-            }`}
-          onPress={() => setActiveTab('Line Up')}
-        >
-          <Text className="text-white text-sm font-semibold">Composition</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          className={`py-2 px-4 rounded-full ${activeTab === 'H2H' ? 'bg-orange-500' : 'bg-gray-600'
-            }`}
-          onPress={() => setActiveTab('H2H')}
-        >
-          <Text className="text-white text-sm font-semibold">Face-à-face</Text>
-        </TouchableOpacity>
-      </View>
-
-      {activeTab === 'Line Up' && renderFormation()}
-      {activeTab === 'Match Detail' && renderMatchDetails()}
-      {activeTab === 'H2H' && renderH2H()}
-    </ScrollView>
+        </Animated.View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
-export default MatchesDetails;
+export default ProductDetails;
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#1e1e32',
+  },
+  scrollContent: {
+    padding: 20,
+    paddingTop: 80,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#1e90ff',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  backButton: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    backgroundColor: '#2a2a40',
+    padding: 12,
+    borderRadius: 12,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+  card: {
+    backgroundColor: '#2a2a40',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#3a3a50',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 12,
+  },
+  imageContainer: {
+    width: '100%',
+    height: 300,
+    backgroundColor: '#3a3a50',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  content: {
+    padding: 24,
+  },
+  category: {
+    color: '#ff6f61',
+    fontSize: 14,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  title: {
+    color: '#fff',
+    fontSize: 30,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  price: {
+    color: '#ff6200',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginRight: 12,
+  },
+  stockContainer: {
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  stockText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  descriptionTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  description: {
+    color: '#a0a0b0',
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  addToCartButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  addToCartText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});

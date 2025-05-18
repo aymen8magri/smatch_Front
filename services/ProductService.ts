@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Product } from '@/models/Product';
 
-const API_URL = 'http://192.168.1.20:3000/api/products';
+const API_URL = 'http://192.168.0.135:3000/api/products';
 
 // Créer un produit
 const createProduct = async (productData: Product) => {

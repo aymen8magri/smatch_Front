@@ -4,7 +4,7 @@ import { jwtDecode } from 'jwt-decode';
 import axios from 'axios';
 
 
-const API_URL = 'http://192.168.1.20:3000/api/users';
+const API_URL = 'http://192.168.0.135:3000/api/users';
 
 // Inscription
 const signup = async (userData: Partial<User>) => {

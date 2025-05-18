@@ -1,7 +1,7 @@
 import { Team } from '@/models/Team';
 import axios from 'axios';
 
-const API_URL = 'http://192.168.1.20:3000/api/team';
+const API_URL = 'http://192.168.0.135:3000/api/team';
 
 // Créer une équipe (auth requise)
 const createTeam = async (teamData: Team, token: string) => {

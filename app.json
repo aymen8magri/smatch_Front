@@ -15,7 +15,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/smatch-logo.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.anonymous.Smatch_Front"
     },
     "web": {
       "bundler": "metro",
