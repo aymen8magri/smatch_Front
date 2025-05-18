@@ -10,7 +10,7 @@ export default function ListTournoi() {
 
   // Fix getFileUrl function
   const getFileUrl = (path: string | undefined) => {
-    const baseURL = 'http://localhost:3000';
+    const baseURL = 'http://192.168.1.20:3000';
     if (!path) return `${baseURL}/default.jpg`;
     const normalizedPath = path.replace(/\\/g, '/');
     return `${baseURL}/${normalizedPath}`;

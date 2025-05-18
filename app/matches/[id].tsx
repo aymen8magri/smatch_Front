@@ -5,16 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import MatchService from '@/services/MatchService';
 import { Match } from '@/models/Match';
 
-// Volleyball positions in court order
-const volleyballPositions = [
-  'Setter', // Position 1: Back-right (service zone)
-  'Opposite', // Position 2: Front-right
-  'Outside Hitter', // Position 3: Front-center
-  'Middle Blocker', // Position 4: Front-left
-  'Outside Hitter', // Position 5: Back-left
-  'Libero', // Position 6: Back-center
-];
-
 const MatchesDetails = () => {
   const { id } = useLocalSearchParams();
   const [match, setMatch] = useState<Match | null>(null);
@@ -22,21 +12,14 @@ const MatchesDetails = () => {
   const [activeTab, setActiveTab] = useState('Line Up');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Function to handle requesting to join a public match
-  const handleJoinQuickMatch = async () => {
-    console.log('handleJoinQuickMatch called');
+  // Function to handle joining a public match
+  const handleJoinQuickMatch = async (teamName: string, place: number) => {
     try {
-      console.log(`Joining match for ${id}`);
-
-      const response = await MatchService.joinQuickMatch(id as string); // utilise le service
+      console.log(`Joining public match ${id} for team ${teamName} at place ${place}`);
+      const response = await MatchService.joinQuickMatch(id as string, { teamName, place });
       const updatedMatch = response.data;
-
-      // ✅ Mets à jour l’état ou fais une redirection si besoin
-      console.log('Match mis à jour :', updatedMatch);
-
-      // Optionnel : message de succès ou redirection
-      Alert.alert('Succès', 'Vous avez rejoint le match avec succès.');
-
+      setMatch(updatedMatch); // Update match state
+      Alert.alert('Succès', `Vous avez rejoint le match à la place ${place}!`);
     } catch (error: any) {
       console.error('Erreur lors de la tentative de rejoindre le match :', error);
       Alert.alert('Erreur', error.response?.data?.message || 'Échec de la tentative de rejoindre le match.');
@@ -44,17 +27,16 @@ const MatchesDetails = () => {
   };
 
   // Function to handle requesting to join a private match
-  const handleRequestJoinPrivateMatch = async () => {
-    console.log('handleRequestJoinPrivateMatch called');
+  const handleRequestJoinPrivateMatch = async (teamName: string, place: number) => {
     try {
-      await MatchService.requestToJoinQuickMatch(id as string);
+      console.log(`Requesting to join private match ${id} for team ${teamName} at place ${place}`);
+      await MatchService.requestToJoinQuickMatch(id as string, { teamName, place });
       Alert.alert('Demande envoyée', 'Votre demande pour rejoindre le match a été envoyée.');
     } catch (error: any) {
       console.error('Erreur lors de la demande de rejoindre le match :', error);
       Alert.alert('Erreur', error.response?.data?.message || 'Échec de l\'envoi de la demande.');
     }
   };
-
 
   useEffect(() => {
     if (!id) return;
@@ -102,7 +84,7 @@ const MatchesDetails = () => {
   }
 
   const matchDate = new Date(match.date);
-  const now = new Date();
+  const now = new Date('2025-05-18T21:20:00+01:00'); // May 18, 2025, 09:20 PM CET
   let status = 'Upcoming';
   if (matchDate < now) {
     status = 'Finished';
@@ -123,102 +105,47 @@ const MatchesDetails = () => {
   };
 
   const renderFormation = () => {
-    // Map players to volleyball positions (ensure 6 players or fill with placeholders)
-    const orderedFormation = volleyballPositions.map((position, index) => {
-      const player = currentFormation.find((p) => p.position === position) || {
+    // Create an array of 6 places, filled with players in order or 'Inconnu'
+    const orderedFormation = Array(6).fill(null).map((_, index) => {
+      const player = currentFormation[index] || {
         name: 'Inconnu',
-        position: position,
+        position: `Place ${index + 1}`,
       };
-      return { ...player, positionIndex: index + 1 }; // Add position index (1-6)
+      return { ...player, place: index + 1 }; // Assign place number (1-6)
     });
-
-    // Position abbreviations for display
-    const positionAbbreviations = {
-      'Setter': 'S',
-      'Opposite': 'O',
-      'Outside Hitter': 'OH',
-      'Middle Blocker': 'MB',
-      'Libero': 'L',
-    };
 
     return (
       <View className="mt-4">
         <Text className="text-white text-lg font-bold">Composition</Text>
         <View className="flex-row justify-around mt-2">
           <TouchableOpacity
-            className={`py-2 px-4 rounded-full ${selectedTeam === match.team1.teamName ? 'bg-orange-500' : 'bg-gray-600'
-              }`}
+            className={`py-2 px-4 rounded-full ${selectedTeam === match.team1.teamName ? 'bg-orange-500' : 'bg-gray-600'}`}
             onPress={() => setSelectedTeam(match.team1.teamName)}
           >
             <Text className="text-white text-sm font-semibold">{match.team1.teamName}</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            className={`py-2 px-4 rounded-full ${selectedTeam === match.team2.teamName ? 'bg-orange-500' : 'bg-gray-600'
-              }`}
+            className={`py-2 px-4 rounded-full ${selectedTeam === match.team2.teamName ? 'bg-orange-500' : 'bg-gray-600'}`}
             onPress={() => setSelectedTeam(match.team2.teamName)}
           >
             <Text className="text-white text-sm font-semibold">{match.team2.teamName}</Text>
           </TouchableOpacity>
         </View>
         <View className="mt-5 bg-orange-500 rounded-lg p-4">
-          {/* Front Row: Positions 2, 3, 4 (Opposite, Outside Hitter, Middle Blocker) */}
+          {/* Front Row: Places 2, 3, 4 */}
           <View className="flex-row justify-around">
             {orderedFormation.slice(1, 4).map((player) => (
               <View
-                key={player.position + player.positionIndex}
+                key={player.place}
                 className="items-center"
                 style={{ position: 'relative' }}
               >
-                <TouchableOpacity
-                  onPress={() =>
-                    match.isPublic
-                      ? handleJoinQuickMatch()
-                      : handleRequestJoinPrivateMatch()
-                  }
-                  style={{
-                    position: 'absolute',
-                    top: -7,
-                    left: '75%',
-                    transform: [{ translateX: -10 }],
-                    width: 25,
-                    height: 25,
-                    backgroundColor: '#10B981',
-                    borderRadius: 20,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    zIndex: 1,
-                  }}
-                >
-                  <Text className="text-white text-xl font-bold">+</Text>
-                </TouchableOpacity>
-
-                <View className="bg-blue-900 w-20 h-20 rounded-full items-center justify-center">
-                  <Text className="text-white font-bold text-lg">
-                    {positionAbbreviations[player.position] || player.position.charAt(0)}
-                  </Text>
-                </View>
-                <Text className="text-white text-sm mt-1 text-center" numberOfLines={2}>
-                  {player.name}
-                </Text>
-              </View>
-            ))}
-          </View>
-          <View className="border-t border-dashed border-white my-2" />
-          {/* Back Row: Positions 1, 6, 5 (Setter, Libero, Outside Hitter) */}
-          <View className="flex-row justify-around mt-3">
-            {orderedFormation
-              .filter((p) => [0, 5, 4].includes(p.positionIndex - 1))
-              .map((player) => (
-                <View
-                  key={player.position + player.positionIndex}
-                  className="items-center"
-                  style={{ position: 'relative' }}
-                >
+                {player.name === 'Inconnu' && (
                   <TouchableOpacity
                     onPress={() =>
                       match.isPublic
-                        ? handleJoinQuickMatch()
-                        : handleRequestJoinPrivateMatch()
+                        ? handleJoinQuickMatch(selectedTeam!, player.place)
+                        : handleRequestJoinPrivateMatch(selectedTeam!, player.place)
                     }
                     style={{
                       position: 'absolute',
@@ -236,11 +163,53 @@ const MatchesDetails = () => {
                   >
                     <Text className="text-white text-xl font-bold">+</Text>
                   </TouchableOpacity>
-
+                )}
+                <View className="bg-blue-900 w-20 h-20 rounded-full items-center justify-center">
+                  <Text className="text-white font-bold text-lg">{player.place}</Text>
+                </View>
+                <Text className="text-white text-sm mt-1 text-center" numberOfLines={2}>
+                  {player.name}
+                </Text>
+              </View>
+            ))}
+          </View>
+          <View className="border-t border-dashed border-white my-2" />
+          {/* Back Row: Places 1, 6, 5 */}
+          <View className="flex-row justify-around mt-3">
+            {orderedFormation
+              .filter((p) => [1, 6, 5].includes(p.place))
+              .map((player) => (
+                <View
+                  key={player.place}
+                  className="items-center"
+                  style={{ position: 'relative' }}
+                >
+                  {player.name === 'Inconnu' && (
+                    <TouchableOpacity
+                      onPress={() =>
+                        match.isPublic
+                          ? handleJoinQuickMatch(selectedTeam!, player.place)
+                          : handleRequestJoinPrivateMatch(selectedTeam!, player.place)
+                      }
+                      style={{
+                        position: 'absolute',
+                        top: -7,
+                        left: '75%',
+                        transform: [{ translateX: -10 }],
+                        width: 25,
+                        height: 25,
+                        backgroundColor: '#10B981',
+                        borderRadius: 20,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 1,
+                      }}
+                    >
+                      <Text className="text-white text-xl font-bold">+</Text>
+                    </TouchableOpacity>
+                  )}
                   <View className="bg-blue-900 w-20 h-20 rounded-full items-center justify-center">
-                    <Text className="text-white font-bold text-lg">
-                      {positionAbbreviations[player.position] || player.position.charAt(0)}
-                    </Text>
+                    <Text className="text-white font-bold text-lg">{player.place}</Text>
                   </View>
                   <Text className="text-white text-sm mt-1 text-center" numberOfLines={2}>
                     {player.name}
@@ -370,22 +339,19 @@ const MatchesDetails = () => {
 
       <View className="flex-row justify-around mb-4">
         <TouchableOpacity
-          className={`py-2 px-4 rounded-full ${activeTab === 'Match Detail' ? 'bg-orange-500' : 'bg-gray-600'
-            }`}
+          className={`py-2 px-4 rounded-full ${activeTab === 'Match Detail' ? 'bg-orange-500' : 'bg-gray-600'}`}
           onPress={() => setActiveTab('Match Detail')}
         >
           <Text className="text-white text-sm font-semibold">Détails</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          className={`py-2 px-4 rounded-full ${activeTab === 'Line Up' ? 'bg-orange-500' : 'bg-gray-600'
-            }`}
+          className={`py-2 px-4 rounded-full ${activeTab === 'Line Up' ? 'bg-orange-500' : 'bg-gray-600'}`}
           onPress={() => setActiveTab('Line Up')}
         >
           <Text className="text-white text-sm font-semibold">Composition</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          className={`py-2 px-4 rounded-full ${activeTab === 'H2H' ? 'bg-orange-500' : 'bg-gray-600'
-            }`}
+          className={`py-2 px-4 rounded-full ${activeTab === 'H2H' ? 'bg-orange-500' : 'bg-gray-600'}`}
           onPress={() => setActiveTab('H2H')}
         >
           <Text className="text-white text-sm font-semibold">Face-à-face</Text>
