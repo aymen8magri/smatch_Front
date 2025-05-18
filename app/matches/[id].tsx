@@ -13,13 +13,14 @@ const MatchesDetails = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   // Function to handle joining a public match
-  const handleJoinQuickMatch = async (teamName: string, place: number) => {
+  const handleJoinQuickMatch = async (teamId: string) => {
+    console.log(teamId)
+
     try {
-      console.log(`Joining public match ${id} for team ${teamName} at place ${place}`);
-      const response = await MatchService.joinQuickMatch(id as string, { teamName, place });
+      const response = await MatchService.joinQuickMatch(id as string, teamId as string);
       const updatedMatch = response.data;
       setMatch(updatedMatch); // Update match state
-      Alert.alert('Succès', `Vous avez rejoint le match à la place ${place}!`);
+      Alert.alert('Succès', `Vous avez rejoint le match}!`);
     } catch (error: any) {
       console.error('Erreur lors de la tentative de rejoindre le match :', error);
       Alert.alert('Erreur', error.response?.data?.message || 'Échec de la tentative de rejoindre le match.');
@@ -27,11 +28,11 @@ const MatchesDetails = () => {
   };
 
   // Function to handle requesting to join a private match
-  const handleRequestJoinPrivateMatch = async (teamName: string, place: number) => {
+  const handleRequestJoinPrivateMatch = async (teamId: string) => {
+    console.log(teamId)
     try {
-      console.log(`Requesting to join private match ${id} for team ${teamName} at place ${place}`);
-      await MatchService.requestToJoinQuickMatch(id as string, { teamName, place });
-      Alert.alert('Demande envoyée', 'Votre demande pour rejoindre le match a été envoyée.');
+      await MatchService.requestToJoinQuickMatch(id as string, teamId as string);
+      Alert.alert('Demande envoyée', 'Votre demande pour rejoindre le match à la place ${place} a été envoyée.');
     } catch (error: any) {
       console.error('Erreur lors de la demande de rejoindre le match :', error);
       Alert.alert('Erreur', error.response?.data?.message || 'Échec de l\'envoi de la demande.');
@@ -84,7 +85,7 @@ const MatchesDetails = () => {
   }
 
   const matchDate = new Date(match.date);
-  const now = new Date('2025-05-18T21:20:00+01:00'); // May 18, 2025, 09:20 PM CET
+  const now = new Date('2025-05-18T21:36:00+01:00'); // May 18, 2025, 09:36 PM CET
   let status = 'Upcoming';
   if (matchDate < now) {
     status = 'Finished';
@@ -113,6 +114,9 @@ const MatchesDetails = () => {
       };
       return { ...player, place: index + 1 }; // Assign place number (1-6)
     });
+
+    // Determine teamId based on selectedTeam
+    const teamId = selectedTeam === match.team1.teamName ? match.team1._id : match.team2._id;
 
     return (
       <View className="mt-4">
@@ -144,8 +148,8 @@ const MatchesDetails = () => {
                   <TouchableOpacity
                     onPress={() =>
                       match.isPublic
-                        ? handleJoinQuickMatch(selectedTeam!, player.place)
-                        : handleRequestJoinPrivateMatch(selectedTeam!, player.place)
+                        ? handleJoinQuickMatch(teamId)
+                        : handleRequestJoinPrivateMatch(teamId)
                     }
                     style={{
                       position: 'absolute',
@@ -188,8 +192,8 @@ const MatchesDetails = () => {
                     <TouchableOpacity
                       onPress={() =>
                         match.isPublic
-                          ? handleJoinQuickMatch(selectedTeam!, player.place)
-                          : handleRequestJoinPrivateMatch(selectedTeam!, player.place)
+                          ? handleJoinQuickMatch(teamId)
+                          : handleRequestJoinPrivateMatch(teamId)
                       }
                       style={{
                         position: 'absolute',
