@@ -22,7 +22,9 @@ const MatchesDetails = () => {
   const [activeTab, setActiveTab] = useState('Line Up');
   const [isLoading, setIsLoading] = useState(true);
 
+  // Function to handle requesting to join a public match
   const handleJoinQuickMatch = async () => {
+    console.log('handleJoinQuickMatch called');
     try {
       console.log(`Joining match for ${id}`);
 
@@ -38,6 +40,18 @@ const MatchesDetails = () => {
     } catch (error: any) {
       console.error('Erreur lors de la tentative de rejoindre le match :', error);
       Alert.alert('Erreur', error.response?.data?.message || 'Échec de la tentative de rejoindre le match.');
+    }
+  };
+
+  // Function to handle requesting to join a private match
+  const handleRequestJoinPrivateMatch = async () => {
+    console.log('handleRequestJoinPrivateMatch called');
+    try {
+      await MatchService.requestToJoinQuickMatch(id as string);
+      Alert.alert('Demande envoyée', 'Votre demande pour rejoindre le match a été envoyée.');
+    } catch (error: any) {
+      console.error('Erreur lors de la demande de rejoindre le match :', error);
+      Alert.alert('Erreur', error.response?.data?.message || 'Échec de l\'envoi de la demande.');
     }
   };
 
@@ -156,7 +170,11 @@ const MatchesDetails = () => {
                 style={{ position: 'relative' }}
               >
                 <TouchableOpacity
-                  onPress={() => handleJoinQuickMatch()} // fonction à définir
+                  onPress={() =>
+                    match.isPublic
+                      ? handleJoinQuickMatch()
+                      : handleRequestJoinPrivateMatch()
+                  }
                   style={{
                     position: 'absolute',
                     top: -7,
@@ -197,7 +215,11 @@ const MatchesDetails = () => {
                   style={{ position: 'relative' }}
                 >
                   <TouchableOpacity
-                    onPress={() => handleJoinQuickMatch()} // fonction à définir
+                    onPress={() =>
+                      match.isPublic
+                        ? handleJoinQuickMatch()
+                        : handleRequestJoinPrivateMatch()
+                    }
                     style={{
                       position: 'absolute',
                       top: -7,

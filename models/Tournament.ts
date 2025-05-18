@@ -45,6 +45,7 @@ export interface Tournament {
   structure: TournamentStructure;
   createdAt?: string; 
   updatedAt?: string;
+  photo?: string;
 }
 
 //   status?: 'Ongoing' | 'Finished' | 'Upcoming';
