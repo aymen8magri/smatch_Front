@@ -24,19 +24,25 @@ const createQuickMatch = async (matchData: Match) => {
 
 
 // Join a quick match
-const joinQuickMatch = async (id: string) => {
+const joinQuickMatch = async (idMatch: string, teamId: string) => {
   const token = await AsyncStorage.getItem('token');
-  return axios.post(`${API_URL}/quick-matches/${id}/join`, {}, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  
+  return axios.post(
+    `${API_URL}/quick-matches/${idMatch}/join`,
+    { teamId }, // ✅ on envoie un objet ici
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
 };
 
+
 // Request to join a quick match
-const requestToJoinQuickMatch = async (id: string) => {
+const requestToJoinQuickMatch = async (idMatch: string, teamId: string) => {
   const token = await AsyncStorage.getItem('token');
-  return axios.post(`${API_URL}/quick-matches/${id}/request-join`, {}, {
+  return axios.post(`${API_URL}/quick-matches/${idMatch}/request-join`, {teamId}, {
     headers: {
       Authorization: `Bearer ${token}`,
     },

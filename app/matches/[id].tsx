@@ -11,22 +11,43 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import Toast from 'react-native-toast-message';
-import ProductService from '../../services/ProductService';
-import { Product } from '@/models/Product';
-import { useCart } from '../../contexts/CartContext';
+import MatchService from '@/services/MatchService';
+import { Match } from '@/models/Match';
 
 const ProductDetails = () => {
   const { id } = useLocalSearchParams();
-  const router = useRouter();
-  const { addToCart } = useCart();
-  const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [match, setMatch] = useState<Match | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('Line Up');
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch product by ID
+  // Function to handle joining a public match
+  const handleJoinQuickMatch = async (teamId: string) => {
+    console.log(teamId)
+
+    try {
+      const response = await MatchService.joinQuickMatch(id as string, teamId as string);
+      const updatedMatch = response.data;
+      setMatch(updatedMatch); // Update match state
+      Alert.alert('Succès', `Vous avez rejoint le match}!`);
+    } catch (error: any) {
+      console.error('Erreur lors de la tentative de rejoindre le match :', error);
+      Alert.alert('Erreur', error.response?.data?.message || 'Échec de la tentative de rejoindre le match.');
+    }
+  };
+
+  // Function to handle requesting to join a private match
+  const handleRequestJoinPrivateMatch = async (teamId: string) => {
+    console.log(teamId)
+    try {
+      await MatchService.requestToJoinQuickMatch(id as string, teamId as string);
+      Alert.alert('Demande envoyée', 'Votre demande pour rejoindre le match à la place ${place} a été envoyée.');
+    } catch (error: any) {
+      console.error('Erreur lors de la demande de rejoindre le match :', error);
+      Alert.alert('Erreur', error.response?.data?.message || 'Échec de l\'envoi de la demande.');
+    }
+  };
+
   useEffect(() => {
     const fetchProduct = async () => {
       try {
@@ -61,52 +82,200 @@ const ProductDetails = () => {
   // Render loading state
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <Animated.View entering={FadeInDown.duration(300)} style={styles.centered}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.push('/shop')}
-            accessible
-            accessibilityLabel="Go back"
-          >
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <ActivityIndicator size="large" color="#1e90ff" />
-          <Text style={styles.errorText}>Loading product...</Text>
-        </Animated.View>
-      </SafeAreaView>
+      <View className="flex-1 justify-center items-center bg-darkBg p-4">
+        <Text className="text-white text-lg font-semibold text-center">Aucun match trouvé</Text>
+        <Text className="text-grayText text-sm text-center mt-2">
+          Il semble qu'il n'y ait aucun match disponible pour le moment.
+        </Text>
+        <TouchableOpacity
+          className="mt-4 bg-orange-500 py-2 px-4 rounded-full"
+          onPress={() => router.back()}
+        >
+          <Text className="text-white font-semibold">Retour</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
-  // Render error state or product not found
-  if (error || !product) {
+  const matchDate = new Date(match.date);
+  const now = new Date('2025-05-18T21:36:00+01:00'); // May 18, 2025, 09:36 PM CET
+  let status = 'Upcoming';
+  if (matchDate < now) {
+    status = 'Finished';
+  } else if (Math.abs(matchDate.getTime() - now.getTime()) < 2 * 60 * 60 * 1000) {
+    status = 'Live';
+  }
+
+  const currentFormation = selectedTeam === match.team1.teamName ? match.team1.players : match.team2.players;
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const renderFormation = () => {
+    // Create an array of 6 places, filled with players in order or 'Inconnu'
+    const orderedFormation = Array(6).fill(null).map((_, index) => {
+      const player = currentFormation[index] || {
+        name: 'Inconnu',
+        position: `Place ${index + 1}`,
+      };
+      return { ...player, place: index + 1 }; // Assign place number (1-6)
+    });
+
+    // Determine teamId based on selectedTeam
+    const teamId = selectedTeam === match.team1.teamName ? match.team1._id : match.team2._id;
+
     return (
       <SafeAreaView style={styles.container}>
         <Animated.View entering={FadeInDown.duration(300)} style={styles.centered}>
           <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.push('/shop')}
-            accessible
-            accessibilityLabel="Go back"
+            className={`py-2 px-4 rounded-full ${selectedTeam === match.team1.teamName ? 'bg-orange-500' : 'bg-gray-600'}`}
+            onPress={() => setSelectedTeam(match.team1.teamName)}
           >
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.errorText}>{error || 'Product not found'}</Text>
           <TouchableOpacity
-            style={styles.retryButton}
-            onPress={handleRetry}
-            accessible
-            accessibilityLabel="Retry"
+            className={`py-2 px-4 rounded-full ${selectedTeam === match.team2.teamName ? 'bg-orange-500' : 'bg-gray-600'}`}
+            onPress={() => setSelectedTeam(match.team2.teamName)}
           >
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
-        </Animated.View>
-      </SafeAreaView>
+        </View>
+        <View className="mt-5 bg-orange-500 rounded-lg p-4">
+          {/* Front Row: Places 2, 3, 4 */}
+          <View className="flex-row justify-around">
+            {orderedFormation.slice(1, 4).map((player) => (
+              <View
+                key={player.place}
+                className="items-center"
+                style={{ position: 'relative' }}
+              >
+                {player.name === 'Inconnu' && (
+                  <TouchableOpacity
+                    onPress={() =>
+                      match.isPublic
+                        ? handleJoinQuickMatch(teamId)
+                        : handleRequestJoinPrivateMatch(teamId)
+                    }
+                    style={{
+                      position: 'absolute',
+                      top: -7,
+                      left: '75%',
+                      transform: [{ translateX: -10 }],
+                      width: 25,
+                      height: 25,
+                      backgroundColor: '#10B981',
+                      borderRadius: 20,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      zIndex: 1,
+                    }}
+                  >
+                    <Text className="text-white text-xl font-bold">+</Text>
+                  </TouchableOpacity>
+                )}
+                <View className="bg-blue-900 w-20 h-20 rounded-full items-center justify-center">
+                  <Text className="text-white font-bold text-lg">{player.place}</Text>
+                </View>
+                <Text className="text-white text-sm mt-1 text-center" numberOfLines={2}>
+                  {player.name}
+                </Text>
+              </View>
+            ))}
+          </View>
+          <View className="border-t border-dashed border-white my-2" />
+          {/* Back Row: Places 1, 6, 5 */}
+          <View className="flex-row justify-around mt-3">
+            {orderedFormation
+              .filter((p) => [1, 6, 5].includes(p.place))
+              .map((player) => (
+                <View
+                  key={player.place}
+                  className="items-center"
+                  style={{ position: 'relative' }}
+                >
+                  {player.name === 'Inconnu' && (
+                    <TouchableOpacity
+                      onPress={() =>
+                        match.isPublic
+                          ? handleJoinQuickMatch(teamId)
+                          : handleRequestJoinPrivateMatch(teamId)
+                      }
+                      style={{
+                        position: 'absolute',
+                        top: -7,
+                        left: '75%',
+                        transform: [{ translateX: -10 }],
+                        width: 25,
+                        height: 25,
+                        backgroundColor: '#10B981',
+                        borderRadius: 20,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 1,
+                      }}
+                    >
+                      <Text className="text-white text-xl font-bold">+</Text>
+                    </TouchableOpacity>
+                  )}
+                  <View className="bg-blue-900 w-20 h-20 rounded-full items-center justify-center">
+                    <Text className="text-white font-bold text-lg">{player.place}</Text>
+                  </View>
+                  <Text className="text-white text-sm mt-1 text-center" numberOfLines={2}>
+                    {player.name}
+                  </Text>
+                </View>
+              ))}
+          </View>
+        </View>
+      </View>
     );
-  }
+  };
 
-  // Determine stock status
-  const isInStock = product.stock !== 'Out of Stock';
+  const renderMatchDetails = () => (
+    <View className="mt-4">
+      <Text className="text-white text-lg font-bold">Détails du match</Text>
+      <View className="mt-2 space-y-2">
+        <Text className="text-white text-sm">
+          Type de terrain : {match.terrainType || 'N/A'}
+        </Text>
+        <Text className="text-white text-sm">
+          Nombre maximum de sets : {match.maxSets || 'N/A'}
+        </Text>
+        <Text className="text-white text-sm" numberOfLines={2}>
+          Lieu : {match.location || 'N/A'}
+        </Text>
+        <Text className="text-white text-sm">
+          Visibilité : {match.isPublic ? 'Public' : 'Privé'}
+        </Text>
+        <Text className="text-white text-sm">
+          Créateur : {match.creator?.name || 'N/A'}
+        </Text>
+      </View>
+    </View>
+  );
+
+  const renderH2H = () => (
+    <View className="mt-4">
+      <Text className="text-white text-lg font-bold">Face-à-face</Text>
+      <View className="mt-2 space-y-2">
+        <Text className="text-white text-sm">Date : {formatDate(match.date)}</Text>
+        <Text className="text-white text-sm">
+          Type de terrain : {match.terrainType || 'N/A'}
+        </Text>
+        <Text className="text-white text-sm">
+          Gagnant : {match.winner?.teamName || 'Non déterminé'}
+        </Text>
+      </View>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -178,38 +347,31 @@ const ProductDetails = () => {
               </View>
             </View>
 
-            <Text style={styles.descriptionTitle}>Description</Text>
-            <Text
-              style={styles.description}
-              accessible
-              accessibilityLabel={`Description: ${product.description}`}
-            >
-              {product.description}
-            </Text>
+      <View className="flex-row justify-around mb-4">
+        <TouchableOpacity
+          className={`py-2 px-4 rounded-full ${activeTab === 'Match Detail' ? 'bg-orange-500' : 'bg-gray-600'}`}
+          onPress={() => setActiveTab('Match Detail')}
+        >
+          <Text className="text-white text-sm font-semibold">Détails</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          className={`py-2 px-4 rounded-full ${activeTab === 'Line Up' ? 'bg-orange-500' : 'bg-gray-600'}`}
+          onPress={() => setActiveTab('Line Up')}
+        >
+          <Text className="text-white text-sm font-semibold">Composition</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          className={`py-2 px-4 rounded-full ${activeTab === 'H2H' ? 'bg-orange-500' : 'bg-gray-600'}`}
+          onPress={() => setActiveTab('H2H')}
+        >
+          <Text className="text-white text-sm font-semibold">Face-à-face</Text>
+        </TouchableOpacity>
+      </View>
 
-            <Animated.View entering={FadeIn.duration(500).delay(200)} sharedTransitionTag="add-to-cart">
-              <TouchableOpacity
-                style={[
-                  styles.addToCartButton,
-                  {
-                    backgroundColor: isInStock ? '#1e90ff' : '#6b7280',
-                    opacity: isInStock ? 1 : 0.6,
-                  },
-                ]}
-                onPress={() => isInStock && handleAddToCart()}
-                disabled={!isInStock}
-                activeOpacity={0.7}
-                accessible
-                accessibilityLabel="Add to cart"
-              >
-                <Ionicons name="cart-outline" size={24} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={styles.addToCartText}>Add to Cart</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          </View>
-        </Animated.View>
-      </ScrollView>
-    </SafeAreaView>
+      {activeTab === 'Line Up' && renderFormation()}
+      {activeTab === 'Match Detail' && renderMatchDetails()}
+      {activeTab === 'H2H' && renderH2H()}
+    </ScrollView>
   );
 };
 
