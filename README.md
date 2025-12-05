@@ -1,7 +1,17 @@
-# Welcome to your Expo app 👋
+Smatch Front
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Projet : Application Mobile Smatch (Front-End)
+Ce projet est une application mobile front-end développée avec Expo et React Native, permettant aux utilisateurs de créer et rejoindre des matchs sportifs. L'application propose :
 
+La création rapide de matchs publics ou privés.
+
+La gestion des équipes et des participants.
+
+La consultation et l'inscription à des matchs existants.
+
+Une interface mobile intuitive et responsive pour une expérience fluide sur Android et iOS.
+
+Le projet utilise le file-based routing d’Expo et est conçu pour être facilement extensible avec des fonctionnalités supplémentaires de gestion de matchs et notifications.
 ## Get started
 
 1. Install dependencies
